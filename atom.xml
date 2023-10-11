@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://charles-jan.github.io</id>
+    <title>Charles-Jan 的创意工坊</title>
+    <updated>2023-10-11T10:36:57.957Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://charles-jan.github.io"/>
+    <link rel="self" href="https://charles-jan.github.io/atom.xml"/>
+    <subtitle>For Technology，For Memories</subtitle>
+    <logo>https://charles-jan.github.io/images/avatar.png</logo>
+    <icon>https://charles-jan.github.io/favicon.ico</icon>
+    <rights>All rights reserved 2023, Charles-Jan 的创意工坊</rights>
+    <entry>
+        <title type="html"><![CDATA[PostgreSQL 15 的 public 权限变化]]></title>
+        <id>https://charles-jan.github.io/post/postgresql-15-public-schema/</id>
+        <link href="https://charles-jan.github.io/post/postgresql-15-public-schema/">
+        </link>
+        <updated>2023-10-10T10:53:37.000Z</updated>
+        <summary type="html"><![CDATA[<p>在 POSTGRESQL 15 之前，public schema 是不安全的。不安全的因素在于，一个没有任何的权限的账号，可以在 POSTGRESQL 的任何的数据库中的 public schema 中肆意妄为。</p>
+]]></summary>
+        <content type="html"><![CDATA[<p>在 POSTGRESQL 15 之前，public schema 是不安全的。不安全的因素在于，一个没有任何的权限的账号，可以在 POSTGRESQL 的任何的数据库中的 public schema 中肆意妄为。</p>
+<!-- more -->
+<p>我们来看看如果一个什么都没有权限的账号，可以在PG中做什么</p>
+<ol>
+<li>建立任何的 OBJECTS ，TABLE，VIEW ，Trigger,  procedure , 等等</li>
+<li>可以对自己建立的 OBJECTS  进行任何的数据的插入，删除，UPDATE 等操作，并且没有任何的限制</li>
+</ol>
+<p>正是由于 <code>public schema</code> 有如此 ”方便“ 的特点，在过去的使用 PostgreSQL 过程中，默认情况下往往都是以 public schema 进行建表、开发的。在此基础上，通常也无法对数据库进行有序的管理。</p>
+<p>在使用高版本 flyway（&gt; 8.0) 后，官方建议 PostgreSQL 使用 15 以上的版本。而在该版本中，只有数据库所有者将被授予对 <code>public</code> 模式的完全访问权限，而其他用户将需要获得明确的 <code>GRANT</code>。因此，在新版本中如果只为新的服务建立了数据库和对应用户，在进行数据库操作时候，会返回 <code>ERROR: permission denied for schema public</code> 这样的错误。</p>
+<p>正确的操作方式如下：<br>
+方案 1：</p>
+<pre><code class="language-SQL"># step 1 使用root账户创建数据库
+create database test
+# step 2 切换连接到新的数据库 test
+# step 3 创建用户
+create user test password 'o6dTXQDVHlbIv8Pl' login;
+# step 4 更新数据库的owner
+ALTER DATABASE test OWNER TO test;
+# step 5 创建（用户）同名schema
+create schema test authorization test;
+</code></pre>
+<p>方案 2：</p>
+<pre><code class="language-SQL"># step 1 使用root账户创建用户
+create user test password 'o6dTXQDVHlbIv8Pl' login;
+# step 2 切换新用户登录
+# step 3 创建数据库
+create database test owner test;
+# step 4 创建（用户）同名schema
+create schema test authorization test;
+</code></pre>
+<p>这样，在使用新的 test 用户登录后，将默认使用与自己同名的 test schema，而不会再使用 public schema, 同样也不会再出现上述的权限错误。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Spring Boot 3.0 升级排坑 —— Swagger]]></title>
+        <id>https://charles-jan.github.io/post/spring-boot-3.0-upgrade-swagger/</id>
+        <link href="https://charles-jan.github.io/post/spring-boot-3.0-upgrade-swagger/">
+        </link>
+        <updated>2023-09-20T03:01:50.000Z</updated>
+        <summary type="html"><![CDATA[<h1 id="背景">背景</h1>
+<p>由于现有的项目需要进行 JDK 版本和 SpringBoot 版本的升级。JDK 需要从 1.8 升级到 17，SpringBoot 需要从 2.1.x 升级到 3.1.x。于是花了两天时间调研了一下升级的迁移方式。</p>
+]]></summary>
+        <content type="html"><![CDATA[<h1 id="背景">背景</h1>
+<p>由于现有的项目需要进行 JDK 版本和 SpringBoot 版本的升级。JDK 需要从 1.8 升级到 17，SpringBoot 需要从 2.1.x 升级到 3.1.x。于是花了两天时间调研了一下升级的迁移方式。</p>
+<!-- more -->
+<p>按照 SpringBoot 的<a href="https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide#upgrade-to-the-latest-27x-version">官方建议</a>，需要先将 SpringBoot 版本升级到 2.7.x，这一过程较为顺利，除了少许依赖包的调整，主要问题还是出现在 spring-fox 上：<br>
+该项目在 2020 年后就停止进行维护了，于是在 SpringBoot 2.4.x 版本就存在着不兼容的情况，但可以通过手动配置 Bean 的方式调整部分 Bean 的配置以实现兼容。</p>
+<pre><code class="language-java">@Bean
+public WebMvcEndpointHandlerMapping webEndpointServletHandlerMapping(
+    WebEndpointsSupplier webEndpointsSupplier,
+    ServletEndpointsSupplier servletEndpointsSupplier,
+    ControllerEndpointsSupplier controllerEndpointsSupplier,
+    EndpointMediaTypes endpointMediaTypes, CorsEndpointProperties corsProperties,
+    WebEndpointProperties webEndpointProperties, Environment environment) {
+    List&lt;ExposableEndpoint&lt;?&gt;&gt; allEndpoints = new ArrayList();
+    Collection&lt;ExposableWebEndpoint&gt; webEndpoints = webEndpointsSupplier.getEndpoints();
+    allEndpoints.addAll(webEndpoints);
+    allEndpoints.addAll(servletEndpointsSupplier.getEndpoints());
+    allEndpoints.addAll(controllerEndpointsSupplier.getEndpoints());
+    String basePath = webEndpointProperties.getBasePath();
+    EndpointMapping endpointMapping = new EndpointMapping(basePath);
+    boolean shouldRegisterLinksMapping = this.shouldRegisterLinksMapping(webEndpointProperties,
+                                                                         environment, basePath);
+    return new WebMvcEndpointHandlerMapping(endpointMapping, webEndpoints, endpointMediaTypes,
+                                            corsProperties.toCorsConfiguration(),
+                                            new EndpointLinksResolver(allEndpoints, basePath), shouldRegisterLinksMapping,
+                                            null);
+}
+
+private boolean shouldRegisterLinksMapping(WebEndpointProperties webEndpointProperties,
+                                           Environment environment, String basePath) {
+    return webEndpointProperties.getDiscovery().isEnabled() &amp;&amp; (StringUtils.hasText(basePath)
+                                                                || ManagementPortType.get(environment).equals(ManagementPortType.DIFFERENT));
+}
+</code></pre>
+<p>但在 SpringBoot 3.x 之后，JDK 版本需要 &gt;= 17 , 对应的使用 Jakarta EE 10 的版本。在这个版本后，原有的 <code>javax.servlet</code> 下的项目，被迁移到了<code>jakarta.servlet</code> 下。因此，在 spring-fox 中使用的 <code>WebMvcSwaggerTransformationFilter</code>将无法被正确加载：</p>
+<pre><code class="language-java">package springfox.documentation.swagger2.web;
+
+import javax.servlet.http.HttpServletRequest;
+
+public interface WebMvcSwaggerTransformationFilter extends SwaggerTransformationFilter&lt;HttpServletRequest&gt; {
+}
+</code></pre>
+<p>此外，SpringBoot 的 Starter 在 3.x 后调整了自动加载的方式，原有的自动加载配置将不再被支持。</p>
+<pre><code class="language-java">public static ImportCandidates load(Class&lt;?&gt; annotation, ClassLoader classLoader) {
+        Assert.notNull(annotation, &quot;'annotation' must not be null&quot;);
+        ClassLoader classLoaderToUse = decideClassloader(classLoader);
+        String location = String.format(&quot;META-INF/spring/%s.imports&quot;, annotation.getName());
+        Enumeration&lt;URL&gt; urls = findUrlsInClasspath(classLoaderToUse, location);
+        ArrayList importCandidates = new ArrayList();
+
+        while(urls.hasMoreElements()) {
+            URL url = (URL)urls.nextElement();
+            importCandidates.addAll(readCandidateConfigurations(url));
+        }
+
+        return new ImportCandidates(importCandidates);
+    }
+</code></pre>
+<p>因此，更换 spring-fox 是升级 SpringBoot 到 3.x 必须进行的一件事。</p>
+<h1 id="现有情况">现有情况</h1>
+<p>spring-fox 是基于 Spring 对 Swagger（OpenAPI） 的一个封装，可以更加方便地在 Spring 项目中集成 Swagger。我们目前使用 Swagger 的形式主要包括 2 个方面。</p>
+<h2 id="可视化的-api-调用">可视化的 api 调用</h2>
+<p>基于 Swagger-ui 的支持，我们可以在项目启动后，通过访问 <code>swagger-ui/index.html</code> 来查看可用的接口来进行接口调试</p>
+<h2 id="生成-apiclient">生成 ApiClient</h2>
+<p>目前服务间的调用，都是基于通过 Swagger 文档生成的 ClientApi 对象进行访问。现有的部署步骤是：</p>
+<ul>
+<li>A 服务部署时通过 <code>swagger-maven-plugin</code> 生成 serviceA.json 文件到部署目录</li>
+<li>需要调用 A 服务的 B 服务在编译前通过 <code>swagger-codegen-maven-plugin</code> 读取 serviceA.json 文件生成调用 A 服务的 ClientApi 代码</li>
+<li>手动注册生成的 ClientApi 到 Spring 容器，并在代码中调用该 Bean 进行服务调用</li>
+</ul>
+<p>对应的一个大致依赖关系如下图所示：<br>
+<img src="https://cdn.nlark.com/yuque/0/2023/jpeg/1284782/1695200035738-01a54ec8-ce17-4c46-867f-3f3c4db6a1a1.jpeg" alt="" loading="lazy"></p>
+<h1 id="升级方案">升级方案</h1>
+<p>在升级 SpringBoot 到 3.x 后，spring-fox 将不再可用，以此为基准的升级方案如下</p>
+<h2 id="方案一">方案一</h2>
+<p>放弃使用 <code>spring-fox</code>，仅依赖 OpenAPI 2.0 的 annotations 包。这样在接口注释层面不需要进行额外修改，仅需要将 <code>spring-fox</code> 相关的配置移除即可。</p>
+<h3 id="优点">优点</h3>
+<p>操作简单，改动较少</p>
+<h3 id="缺点">缺点</h3>
+<ul>
+<li>失去了在线调试的功能，即放弃了对 <code>swagger-ui</code> 的使用</li>
+<li>OpenAPI 2.0 在 2017 年后就停止更新维护，从长远考虑不建议继续使用</li>
+</ul>
+<h2 id="方案二">方案二</h2>
+<ol>
+<li>将 <code>spring-fox</code> 替换为 <code>spring-doc</code>, 将 OpenAPI 2.0 的注解替换为 OpenAPI 3.0 的注解</li>
+<li>由于 <code>swagger-maven-plugin</code>尚未对 OpenAPI 3.0 做支持，因此放弃使用 <code>swagger-maven-plugin</code></li>
+<li><code>swagger-codegen-maven-plugin</code> 通过读取在线服务的 docs 接口来生成 ClientApi</li>
+</ol>
+<h3 id="优点-2">优点</h3>
+<ul>
+<li>OpenAPI 3.0 标准更加简化，在配置上也更加简单</li>
+<li>springdoc 较为活跃，可以提供相对较为长久的支持</li>
+<li>swagger-maven-plugin 已停止更新，不依赖此插件更利用后期维护</li>
+</ul>
+<h3 id="缺点-2">缺点</h3>
+<ul>
+<li>注解的调整对于老项目迁移来说，工作量较大</li>
+<li>尚未跟 DevOps 确定是否可以在部署流程中访问在线服务的接口，若存在互相调用的情况要如何解决</li>
+</ul>
+<h2 id="方案三">方案三</h2>
+<ol>
+<li>同方案二，替换 <code>spring-fox</code> 并升级注解</li>
+<li>放弃使用 <code>swagger-maven-plugin</code> 和 <code>swagger-codegen-maven-plugin</code></li>
+<li>使用 Feign 或其它 http 客户端替代 自动生成的 ClientApi</li>
+</ol>
+<h3 id="优点-3">优点</h3>
+<ul>
+<li>接口调用与 Swagger 完全解耦，客户端生成不再依赖于 Swagger 注解</li>
+<li>Swagger 的功能更加独立，仅用于展示和调试接口信息</li>
+</ul>
+<h3 id="缺点-3">缺点</h3>
+<ul>
+<li>对于已有大量服务调用的老服务，迁移成本较大。建议编写脚本进行统一处理</li>
+<li>对于调用方较多的服务，调用方需要重复定义大量的接口和实体类</li>
+</ul>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[读公众号杂想]]></title>
+        <id>https://charles-jan.github.io/post/kong-yi-ji/</id>
+        <link href="https://charles-jan.github.io/post/kong-yi-ji/">
+        </link>
+        <updated>2023-08-29T09:25:15.000Z</updated>
+        <summary type="html"><![CDATA[<p>...<br>
+孔乙己自己知道不能和他们谈天，便只好向应届生们说话。有一回对我说道，“你学过编程吗?”</p>
+]]></summary>
+        <content type="html"><![CDATA[<p>...<br>
+孔乙己自己知道不能和他们谈天，便只好向应届生们说话。有一回对我说道，“你学过编程吗?”</p>
+<!-- more -->
+<p>我略略点一点头。他说，“会编程，……我便考你一考。高并发业务场景下，需要用哪些中间件来解决?”我想，讨饭一样的人，也配考我么?便回过脸去，不再理会。孔乙己等了许久，很恳切的说道，“不知道吧?……我教给你，记着!这些中间件应该记着。将来做架构师的时候，写技术方案要用。”我暗想我和架构师的等级还很远呢，而且我们架构师也从不讲中间件的用法;又好笑，又不耐烦，懒懒的答他道， “谁要你教，不就是 Redis、消息队列之类的么?”孔乙己显出极高兴的样子，将两个指头的长指甲敲着键盘，点头说，“对呀对呀!……Redis 有 3 种集群部署方式，你知道么?”我愈不耐烦了，努着嘴走远。孔乙己刚打开控制台，想输出命令，见我毫不热心，便又叹一口气，显出极惋惜的样子。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Docker 核心技术与实现原理]]></title>
+        <id>https://charles-jan.github.io/post/docker-core-tech/</id>
+        <link href="https://charles-jan.github.io/post/docker-core-tech/">
+        </link>
+        <updated>2022-04-06T01:37:34.000Z</updated>
+        <summary type="html"><![CDATA[<p>Docker 经过多年的发展目前的组件较多，并且实现也非常复杂，本文不想过多的介绍 Docker 具体的实现细节，而更想谈一谈 Docker 这种虚拟化技术的出现有哪些核心技术的支撑。</p>
+]]></summary>
+        <content type="html"><![CDATA[<p>Docker 经过多年的发展目前的组件较多，并且实现也非常复杂，本文不想过多的介绍 Docker 具体的实现细节，而更想谈一谈 Docker 这种虚拟化技术的出现有哪些核心技术的支撑。</p>
+<!-- more -->
+<p><img src="https://charles-jan.github.io/post-images/1649209177448.png" alt="Docker 核心技术" loading="lazy"><br>
+首先，Docker 的出现一定是因为目前的后端在开发和运维阶段确实需要一种虚拟化技术解决开发环境和生产环境环境一致的问题，通过 Docker 我们可以将程序运行的环境也纳入到版本控制中，排除因为环境造成不同运行结果的可能。本文剩下的内容会介绍几种 Docker 使用的核心技术，如果我们了解它们的使用方法和原理，就能清楚 Docker 的实现原理。</p>
+<h2 id="namespaces">Namespaces</h2>
+<p>命名空间 (namespaces) 是 Linux 为我们提供的用于分离进程树、网络接口、挂载点以及进程间通信等资源的方法。在日常使用 Linux 或者 macOS 时，我们并没有运行多个完全分离的服务器的需要，但是如果我们在服务器上启动了多个服务，这些服务其实会相互影响的，每一个服务都能看到其他服务的进程，也可以访问宿主机器上的任意文件，这是很多时候我们都不愿意看到的，我们更希望运行在同一台机器上的不同服务能做到完全隔离，就像运行在多台不同的机器上一样。</p>
+<p>Linux 的命名空间机制提供了以下七种不同的命名空间，包括</p>
+<ul>
+<li>CLONE_NEWCGROUP</li>
+<li>CLONE_NEWIPC</li>
+<li>CLONE_NEWNET</li>
+<li>CLONE_NEWNS</li>
+<li>CLONE_NEWPID</li>
+<li>CLONE_NEWUSER</li>
+<li>CLONE_NEWUTS</li>
+</ul>
+<p>通过这七个选项我们能在创建新的进程时设置新进程应该在哪些资源上与宿主机器进行隔离。</p>
+<p>查看当前系统的 <code>namespace</code></p>
+<pre><code class="language-shell">lsns -t &lt;type&gt;
+</code></pre>
+<p>查看某进程的 <code>namespace</code></p>
+<pre><code class="language-shell">ls -al /proc/&lt;pid&gt;/ns/
+</code></pre>
+<h3 id="进程">进程</h3>
+<p>进程是 Linux 以及现在操作系统中非常重要的概念，它表示一个正在执行的程序，也是在现代分时系统中的一个任务单元。</p>
+<blockquote>
+<p>使用 <code>ps -ef </code> 命令在宿主机和 docker 中执行，会打印出完全不同的进程</p>
+</blockquote>
+<h3 id="挂载点">挂载点</h3>
+<p>在新的进程中创建隔离的挂载点命名空间需要在 clone 函数中传入 CLONE_NEWNS，这样子进程就能得到父进程挂载点的拷贝，如果不传入这个参数子进程对文件系统的读写都会同步回父进程以及整个主机的文件系统。</p>
+<p>如果一个容器需要启动，那么它一定需要提供一个根文件系统（rootfs），容器需要使用这个文件系统来创建一个新的进程，所有二进制的执行都必须在这个根文件系统中。</p>
+<figure data-type="image" tabindex="1"><img src="https://charles-jan.github.io/post-images/1649603130232.png" alt="" loading="lazy"></figure>
+<p>为了保证当前的容器进程没有办法访问宿主机器上其他目录，我们在这里还需要通过 libcontainer 提供的 pivot_root 或者 chroot 函数改变进程能够访问个文件目录的根节点。</p>
+<blockquote>
+<p>内容参考自 libcontainer 中的 <a href="https://github.com/opencontainers/runc/blob/main/libcontainer/SPEC.md">SPEC.md </a></p>
+</blockquote>
+<h4 id="chroot">chroot</h4>
+<p>在 Linux 系统中，系统默认的目录就都是以 / 也就是根目录开头的，chroot 的使用能够改变当前的系统根目录结构，通过改变当前系统的根目录，我们能够限制用户的权利，在新的根目录下并不能够访问旧系统根目录的结构个文件，也就建立了一个与原系统完全隔离的目录结构。</p>
+<h2 id="cgroups">CGroups</h2>
+<p>我们通过 Linux 的命名空间为新创建的进程隔离了文件系统、网络并与宿主机器之间的进程相互隔离，但是命名空间并不能够为我们提供物理资源上的隔离，比如 CPU 或者内存，如果在同一台机器上运行了多个对彼此以及宿主机器一无所知的『容器』，这些容器却共同占用了宿主机器的物理资源。</p>
+<p>如果其中的某一个容器正在执行 CPU 密集型的任务，那么就会影响其他容器中任务的性能与执行效率，导致多个容器相互影响并且抢占资源。如何对多个容器的资源使用进行限制就成了解决进程虚拟资源隔离之后的主要问题，而 Control Groups（简称 CGroups）就是能够隔离宿主机器上的物理资源，例如 CPU、内存、磁盘 I/O 和网络带宽。</p>
+<p>Linux 使用文件系统来实现 CGroup，我们可以直接使用下面的命令查看当前的 CGroup 中有哪些子系统：</p>
+<pre><code class="language-sh">$ lssubsys -m
+cpuset /sys/fs/cgroup/cpuset
+cpu,cpuacct /sys/fs/cgroup/cpu,cpuacct
+blkio /sys/fs/cgroup/blkio
+memory /sys/fs/cgroup/memory
+devices /sys/fs/cgroup/devices
+freezer /sys/fs/cgroup/freezer
+net_cls,net_prio /sys/fs/cgroup/net_cls,net_prio
+perf_event /sys/fs/cgroup/perf_event
+hugetlb /sys/fs/cgroup/hugetlb
+pids /sys/fs/cgroup/pids
+rdma /sys/fs/cgroup/rdma
+</code></pre>
+<p>如果我们想要创建一个新的 cgroup 只需要在想要分配或者限制资源的子系统下面创建一个新的文件夹，然后这个文件夹下就会自动出现很多的内容，如果你在 Linux 上安装了 Docker，你就会发现所有子系统的目录下都有一个名为 docker 的文件夹</p>
+<p>当我们使用 Docker 关闭掉正在运行的容器时，Docker 的子控制组对应的文件夹也会被 Docker 进程移除，Docker 在使用 CGroup 时其实也只是做了一些创建文件夹改变文件内容的文件操作，不过 CGroup 的使用也确实解决了我们限制子容器资源占用的问题，系统管理员能够为多个容器合理的分配资源并且不会出现多个容器互相抢占资源的问题。</p>
+<h2 id="unionfs">UnionFS</h2>
+<p>Linux 的命名空间和控制组分别解决了不同资源隔离的问题，前者解决了进程、网络以及文件系统的隔离，后者实现了 CPU、内存等资源的隔离，但是在 Docker 中还有另一个非常重要的问题需要解决 - 也就是镜像。</p>
+<p>Docker 镜像其实本质就是一个压缩包，我们可以使用下面的命令将一个 Docker 镜像中的文件导出：</p>
+<pre><code class="language-shell">$ docker save -o busybox.tar $(docker create busybox) 
+</code></pre>
+<h3 id="存储驱动">存储驱动</h3>
+<p>Docker 使用了一系列不同的存储驱动管理镜像内的文件系统并运行容器，这些存储驱动与 Docker 卷（volume）有些不同，存储引擎管理着能够在多个容器之间共享的存储。</p>
+<p>想要理解 Docker 使用的存储驱动，我们首先需要理解 Docker 是如何构建并且存储镜像的，也需要明白 Docker 的镜像是如何被每一个容器所使用的；Docker 中的每一个镜像都是由一系列只读的层组成的，Dockerfile 中的每一个命令都会在已有的只读层上创建一个新的层（layer）。</p>
+<p>容器中的每一层（layer）都只对当前容器进行了非常小的修改，上述的 Dockerfile 文件会构建一个拥有四层 layer 的镜像。</p>
+<p>UnionFS 其实是一种为 Linux 操作系统设计的用于把多个文件系统『联合』到同一个挂载点的文件系统服务。overlay2 作为联合文件系统，它能够将不同文件夹中的层联合（Union）到了同一个文件夹中，整个『联合』的过程被称为联合挂载（Union Mount）：<br>
+<img src="https://charles-jan.github.io/post-images/1649606279317.png" alt="overlay2" loading="lazy"><br>
+overlay2主要由merged、lowerdir、upperdir、workdir组成。overlay2运作时，会将lowerdir、upperdir和workdir联合挂载到merged目录，为使用者提供一个“统一视图”。</p>
+<p>在最新的 Docker 中，overlay2 是默认的存储驱动，但是在没有 overlay2 驱动的机器上会使用 aufs 作为 Docker 的默认驱动。</p>
+<blockquote>
+<p>在 Docker 的官方文档 <a href="https://docs.docker.com/storage/storagedriver/select-storage-driver/">Select a storage driver</a> 中可以找到不同存储驱动的说明。</p>
+</blockquote>
+<h2 id="总结">总结</h2>
+<p>Docker 目前已经成为了非常主流的技术，已经在很多成熟公司的生产环境中使用，但是 Docker 的核心技术其实已经有很多年的历史了，Linux 命名空间、控制组和 UnionFS 三大技术支撑了目前 Docker 的实现，也是 Docker 能够出现的最重要原因。</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[Docker 入门小尝试]]></title>
+        <id>https://charles-jan.github.io/post/docker-introduction/</id>
+        <link href="https://charles-jan.github.io/post/docker-introduction/">
+        </link>
+        <updated>2022-03-15T09:21:07.000Z</updated>
+        <summary type="html"><![CDATA[<p>提到虚拟化技术，我们首先想到的一定是 Docker。经过近 10 的发展，Docker 已经成了很多公司的标配。作为在生产环境中广泛应用的产品，Docker 有着非常成熟的社区以及大量的使用者，代码库中的内容也变得非常庞大。</p>
+]]></summary>
+        <content type="html"><![CDATA[<p>提到虚拟化技术，我们首先想到的一定是 Docker。经过近 10 的发展，Docker 已经成了很多公司的标配。作为在生产环境中广泛应用的产品，Docker 有着非常成熟的社区以及大量的使用者，代码库中的内容也变得非常庞大。</p>
+<!-- more -->
+<p>尽管现在想完全掌握 Docker 变得更加困难，但作为工作中必然使用到的技术，对它的学习和使用依然是必不可少的。</p>
+]]></content>
+    </entry>
+</feed>

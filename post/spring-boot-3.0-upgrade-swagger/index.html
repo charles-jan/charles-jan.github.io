@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>Spring Boot 3.0 升级排坑 —— Swagger | Charles-Jan 的创意工坊</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="shortcut icon" href="https://charles-jan.github.io/favicon.ico?v=1697020614179">
+<link rel="stylesheet" href="https://charles-jan.github.io/styles/main.css">
+
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+
+
+    <meta name="description" content="背景
+由于现有的项目需要进行 JDK 版本和 SpringBoot 版本的升级。JDK 需要从 1.8 升级到 17，SpringBoot 需要从 2.1.x 升级到 3.1.x。于是花了两天时间调研了一下升级的迁移方式。
+
+按照 Spri..." />
+    <meta name="keywords" content="Spring" />
+  </head>
+  <body>
+    <div id="app" class="main">
+
+      <div class="sidebar" :class="{ 'full-height': menuVisible }">
+  <div class="top-container" data-aos="fade-right">
+    <div class="top-header-container">
+      <a class="site-title-container" href="https://charles-jan.github.io">
+        <img src="https://charles-jan.github.io/images/avatar.png?v=1697020614179" class="site-logo">
+        <h1 class="site-title">Charles-Jan 的创意工坊</h1>
+      </a>
+      <div class="menu-btn" @click="menuVisible = !menuVisible">
+        <div class="line"></div>
+      </div>
+    </div>
+    <div>
+      
+        
+          <a href="/" class="site-nav">
+            首页
+          </a>
+        
+      
+        
+          <a href="/archives" class="site-nav">
+            归档
+          </a>
+        
+      
+        
+          <a href="/tags" class="site-nav">
+            标签
+          </a>
+        
+      
+        
+          <a href="/post/about" class="site-nav">
+            关于
+          </a>
+        
+      
+    </div>
+  </div>
+  <div class="bottom-container" data-aos="flip-up" data-aos-offset="0">
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+    <div class="site-description">
+      For Technology，For Memories
+    </div>
+    <div class="site-footer">
+      Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://charles-jan.github.io/atom.xml" target="_blank">RSS</a>
+    </div>
+  </div>
+</div>
+
+
+      <div class="main-container">
+        <div class="content-container" data-aos="fade-up">
+          <div class="post-detail">
+            <h2 class="post-title">Spring Boot 3.0 升级排坑 —— Swagger</h2>
+            <div class="post-date">2023-09-20</div>
+            
+            <div class="post-content" v-pre>
+              <h1 id="背景">背景</h1>
+<p>由于现有的项目需要进行 JDK 版本和 SpringBoot 版本的升级。JDK 需要从 1.8 升级到 17，SpringBoot 需要从 2.1.x 升级到 3.1.x。于是花了两天时间调研了一下升级的迁移方式。</p>
+<!-- more -->
+<p>按照 SpringBoot 的<a href="https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide#upgrade-to-the-latest-27x-version">官方建议</a>，需要先将 SpringBoot 版本升级到 2.7.x，这一过程较为顺利，除了少许依赖包的调整，主要问题还是出现在 spring-fox 上：<br>
+该项目在 2020 年后就停止进行维护了，于是在 SpringBoot 2.4.x 版本就存在着不兼容的情况，但可以通过手动配置 Bean 的方式调整部分 Bean 的配置以实现兼容。</p>
+<pre><code class="language-java">@Bean
+public WebMvcEndpointHandlerMapping webEndpointServletHandlerMapping(
+    WebEndpointsSupplier webEndpointsSupplier,
+    ServletEndpointsSupplier servletEndpointsSupplier,
+    ControllerEndpointsSupplier controllerEndpointsSupplier,
+    EndpointMediaTypes endpointMediaTypes, CorsEndpointProperties corsProperties,
+    WebEndpointProperties webEndpointProperties, Environment environment) {
+    List&lt;ExposableEndpoint&lt;?&gt;&gt; allEndpoints = new ArrayList();
+    Collection&lt;ExposableWebEndpoint&gt; webEndpoints = webEndpointsSupplier.getEndpoints();
+    allEndpoints.addAll(webEndpoints);
+    allEndpoints.addAll(servletEndpointsSupplier.getEndpoints());
+    allEndpoints.addAll(controllerEndpointsSupplier.getEndpoints());
+    String basePath = webEndpointProperties.getBasePath();
+    EndpointMapping endpointMapping = new EndpointMapping(basePath);
+    boolean shouldRegisterLinksMapping = this.shouldRegisterLinksMapping(webEndpointProperties,
+                                                                         environment, basePath);
+    return new WebMvcEndpointHandlerMapping(endpointMapping, webEndpoints, endpointMediaTypes,
+                                            corsProperties.toCorsConfiguration(),
+                                            new EndpointLinksResolver(allEndpoints, basePath), shouldRegisterLinksMapping,
+                                            null);
+}
+
+private boolean shouldRegisterLinksMapping(WebEndpointProperties webEndpointProperties,
+                                           Environment environment, String basePath) {
+    return webEndpointProperties.getDiscovery().isEnabled() &amp;&amp; (StringUtils.hasText(basePath)
+                                                                || ManagementPortType.get(environment).equals(ManagementPortType.DIFFERENT));
+}
+</code></pre>
+<p>但在 SpringBoot 3.x 之后，JDK 版本需要 &gt;= 17 , 对应的使用 Jakarta EE 10 的版本。在这个版本后，原有的 <code>javax.servlet</code> 下的项目，被迁移到了<code>jakarta.servlet</code> 下。因此，在 spring-fox 中使用的 <code>WebMvcSwaggerTransformationFilter</code>将无法被正确加载：</p>
+<pre><code class="language-java">package springfox.documentation.swagger2.web;
+
+import javax.servlet.http.HttpServletRequest;
+
+public interface WebMvcSwaggerTransformationFilter extends SwaggerTransformationFilter&lt;HttpServletRequest&gt; {
+}
+</code></pre>
+<p>此外，SpringBoot 的 Starter 在 3.x 后调整了自动加载的方式，原有的自动加载配置将不再被支持。</p>
+<pre><code class="language-java">public static ImportCandidates load(Class&lt;?&gt; annotation, ClassLoader classLoader) {
+        Assert.notNull(annotation, &quot;'annotation' must not be null&quot;);
+        ClassLoader classLoaderToUse = decideClassloader(classLoader);
+        String location = String.format(&quot;META-INF/spring/%s.imports&quot;, annotation.getName());
+        Enumeration&lt;URL&gt; urls = findUrlsInClasspath(classLoaderToUse, location);
+        ArrayList importCandidates = new ArrayList();
+
+        while(urls.hasMoreElements()) {
+            URL url = (URL)urls.nextElement();
+            importCandidates.addAll(readCandidateConfigurations(url));
+        }
+
+        return new ImportCandidates(importCandidates);
+    }
+</code></pre>
+<p>因此，更换 spring-fox 是升级 SpringBoot 到 3.x 必须进行的一件事。</p>
+<h1 id="现有情况">现有情况</h1>
+<p>spring-fox 是基于 Spring 对 Swagger（OpenAPI） 的一个封装，可以更加方便地在 Spring 项目中集成 Swagger。我们目前使用 Swagger 的形式主要包括 2 个方面。</p>
+<h2 id="可视化的-api-调用">可视化的 api 调用</h2>
+<p>基于 Swagger-ui 的支持，我们可以在项目启动后，通过访问 <code>swagger-ui/index.html</code> 来查看可用的接口来进行接口调试</p>
+<h2 id="生成-apiclient">生成 ApiClient</h2>
+<p>目前服务间的调用，都是基于通过 Swagger 文档生成的 ClientApi 对象进行访问。现有的部署步骤是：</p>
+<ul>
+<li>A 服务部署时通过 <code>swagger-maven-plugin</code> 生成 serviceA.json 文件到部署目录</li>
+<li>需要调用 A 服务的 B 服务在编译前通过 <code>swagger-codegen-maven-plugin</code> 读取 serviceA.json 文件生成调用 A 服务的 ClientApi 代码</li>
+<li>手动注册生成的 ClientApi 到 Spring 容器，并在代码中调用该 Bean 进行服务调用</li>
+</ul>
+<p>对应的一个大致依赖关系如下图所示：<br>
+<img src="https://cdn.nlark.com/yuque/0/2023/jpeg/1284782/1695200035738-01a54ec8-ce17-4c46-867f-3f3c4db6a1a1.jpeg" alt="" loading="lazy"></p>
+<h1 id="升级方案">升级方案</h1>
+<p>在升级 SpringBoot 到 3.x 后，spring-fox 将不再可用，以此为基准的升级方案如下</p>
+<h2 id="方案一">方案一</h2>
+<p>放弃使用 <code>spring-fox</code>，仅依赖 OpenAPI 2.0 的 annotations 包。这样在接口注释层面不需要进行额外修改，仅需要将 <code>spring-fox</code> 相关的配置移除即可。</p>
+<h3 id="优点">优点</h3>
+<p>操作简单，改动较少</p>
+<h3 id="缺点">缺点</h3>
+<ul>
+<li>失去了在线调试的功能，即放弃了对 <code>swagger-ui</code> 的使用</li>
+<li>OpenAPI 2.0 在 2017 年后就停止更新维护，从长远考虑不建议继续使用</li>
+</ul>
+<h2 id="方案二">方案二</h2>
+<ol>
+<li>将 <code>spring-fox</code> 替换为 <code>spring-doc</code>, 将 OpenAPI 2.0 的注解替换为 OpenAPI 3.0 的注解</li>
+<li>由于 <code>swagger-maven-plugin</code>尚未对 OpenAPI 3.0 做支持，因此放弃使用 <code>swagger-maven-plugin</code></li>
+<li><code>swagger-codegen-maven-plugin</code> 通过读取在线服务的 docs 接口来生成 ClientApi</li>
+</ol>
+<h3 id="优点-2">优点</h3>
+<ul>
+<li>OpenAPI 3.0 标准更加简化，在配置上也更加简单</li>
+<li>springdoc 较为活跃，可以提供相对较为长久的支持</li>
+<li>swagger-maven-plugin 已停止更新，不依赖此插件更利用后期维护</li>
+</ul>
+<h3 id="缺点-2">缺点</h3>
+<ul>
+<li>注解的调整对于老项目迁移来说，工作量较大</li>
+<li>尚未跟 DevOps 确定是否可以在部署流程中访问在线服务的接口，若存在互相调用的情况要如何解决</li>
+</ul>
+<h2 id="方案三">方案三</h2>
+<ol>
+<li>同方案二，替换 <code>spring-fox</code> 并升级注解</li>
+<li>放弃使用 <code>swagger-maven-plugin</code> 和 <code>swagger-codegen-maven-plugin</code></li>
+<li>使用 Feign 或其它 http 客户端替代 自动生成的 ClientApi</li>
+</ol>
+<h3 id="优点-3">优点</h3>
+<ul>
+<li>接口调用与 Swagger 完全解耦，客户端生成不再依赖于 Swagger 注解</li>
+<li>Swagger 的功能更加独立，仅用于展示和调试接口信息</li>
+</ul>
+<h3 id="缺点-3">缺点</h3>
+<ul>
+<li>对于已有大量服务调用的老服务，迁移成本较大。建议编写脚本进行统一处理</li>
+<li>对于调用方较多的服务，调用方需要重复定义大量的接口和实体类</li>
+</ul>
+
+            </div>
+            
+              <div class="tag-container">
+                
+                  <a href="https://charles-jan.github.io/tag/FhwHAD4ef/" class="tag">
+                    Spring
+                  </a>
+                
+              </div>
+            
+            
+              <div class="next-post">
+                <div class="next">下一篇</div>
+                <a href="https://charles-jan.github.io/post/kong-yi-ji/">
+                  <h3 class="post-title">
+                    读公众号杂想
+                  </h3>
+                </a>
+              </div>
+            
+
+            
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+<script type="application/javascript">
+
+AOS.init();
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    menuVisible: false,
+  },
+})
+
+</script>
+
+
+  <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>
+    hljs.initHighlightingOnLoad()
+  </script>
+
+
+
+
+
+  </body>
+</html>

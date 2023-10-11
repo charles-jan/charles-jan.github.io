@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>Docker 核心技术与实现原理 | Charles-Jan 的创意工坊</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="shortcut icon" href="https://charles-jan.github.io/favicon.ico?v=1697020614179">
+<link rel="stylesheet" href="https://charles-jan.github.io/styles/main.css">
+
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+
+
+    <meta name="description" content="Docker 经过多年的发展目前的组件较多，并且实现也非常复杂，本文不想过多的介绍 Docker 具体的实现细节，而更想谈一谈 Docker 这种虚拟化技术的出现有哪些核心技术的支撑。
+
+
+首先，Docker 的出现一定是因为目前的后端在开..." />
+    <meta name="keywords" content="" />
+  </head>
+  <body>
+    <div id="app" class="main">
+
+      <div class="sidebar" :class="{ 'full-height': menuVisible }">
+  <div class="top-container" data-aos="fade-right">
+    <div class="top-header-container">
+      <a class="site-title-container" href="https://charles-jan.github.io">
+        <img src="https://charles-jan.github.io/images/avatar.png?v=1697020614179" class="site-logo">
+        <h1 class="site-title">Charles-Jan 的创意工坊</h1>
+      </a>
+      <div class="menu-btn" @click="menuVisible = !menuVisible">
+        <div class="line"></div>
+      </div>
+    </div>
+    <div>
+      
+        
+          <a href="/" class="site-nav">
+            首页
+          </a>
+        
+      
+        
+          <a href="/archives" class="site-nav">
+            归档
+          </a>
+        
+      
+        
+          <a href="/tags" class="site-nav">
+            标签
+          </a>
+        
+      
+        
+          <a href="/post/about" class="site-nav">
+            关于
+          </a>
+        
+      
+    </div>
+  </div>
+  <div class="bottom-container" data-aos="flip-up" data-aos-offset="0">
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+    <div class="site-description">
+      For Technology，For Memories
+    </div>
+    <div class="site-footer">
+      Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://charles-jan.github.io/atom.xml" target="_blank">RSS</a>
+    </div>
+  </div>
+</div>
+
+
+      <div class="main-container">
+        <div class="content-container" data-aos="fade-up">
+          <div class="post-detail">
+            <h2 class="post-title">Docker 核心技术与实现原理</h2>
+            <div class="post-date">2022-04-06</div>
+            
+            <div class="post-content" v-pre>
+              <p>Docker 经过多年的发展目前的组件较多，并且实现也非常复杂，本文不想过多的介绍 Docker 具体的实现细节，而更想谈一谈 Docker 这种虚拟化技术的出现有哪些核心技术的支撑。</p>
+<!-- more -->
+<p><img src="https://charles-jan.github.io/post-images/1649209177448.png" alt="Docker 核心技术" loading="lazy"><br>
+首先，Docker 的出现一定是因为目前的后端在开发和运维阶段确实需要一种虚拟化技术解决开发环境和生产环境环境一致的问题，通过 Docker 我们可以将程序运行的环境也纳入到版本控制中，排除因为环境造成不同运行结果的可能。本文剩下的内容会介绍几种 Docker 使用的核心技术，如果我们了解它们的使用方法和原理，就能清楚 Docker 的实现原理。</p>
+<h2 id="namespaces">Namespaces</h2>
+<p>命名空间 (namespaces) 是 Linux 为我们提供的用于分离进程树、网络接口、挂载点以及进程间通信等资源的方法。在日常使用 Linux 或者 macOS 时，我们并没有运行多个完全分离的服务器的需要，但是如果我们在服务器上启动了多个服务，这些服务其实会相互影响的，每一个服务都能看到其他服务的进程，也可以访问宿主机器上的任意文件，这是很多时候我们都不愿意看到的，我们更希望运行在同一台机器上的不同服务能做到完全隔离，就像运行在多台不同的机器上一样。</p>
+<p>Linux 的命名空间机制提供了以下七种不同的命名空间，包括</p>
+<ul>
+<li>CLONE_NEWCGROUP</li>
+<li>CLONE_NEWIPC</li>
+<li>CLONE_NEWNET</li>
+<li>CLONE_NEWNS</li>
+<li>CLONE_NEWPID</li>
+<li>CLONE_NEWUSER</li>
+<li>CLONE_NEWUTS</li>
+</ul>
+<p>通过这七个选项我们能在创建新的进程时设置新进程应该在哪些资源上与宿主机器进行隔离。</p>
+<p>查看当前系统的 <code>namespace</code></p>
+<pre><code class="language-shell">lsns -t &lt;type&gt;
+</code></pre>
+<p>查看某进程的 <code>namespace</code></p>
+<pre><code class="language-shell">ls -al /proc/&lt;pid&gt;/ns/
+</code></pre>
+<h3 id="进程">进程</h3>
+<p>进程是 Linux 以及现在操作系统中非常重要的概念，它表示一个正在执行的程序，也是在现代分时系统中的一个任务单元。</p>
+<blockquote>
+<p>使用 <code>ps -ef </code> 命令在宿主机和 docker 中执行，会打印出完全不同的进程</p>
+</blockquote>
+<h3 id="挂载点">挂载点</h3>
+<p>在新的进程中创建隔离的挂载点命名空间需要在 clone 函数中传入 CLONE_NEWNS，这样子进程就能得到父进程挂载点的拷贝，如果不传入这个参数子进程对文件系统的读写都会同步回父进程以及整个主机的文件系统。</p>
+<p>如果一个容器需要启动，那么它一定需要提供一个根文件系统（rootfs），容器需要使用这个文件系统来创建一个新的进程，所有二进制的执行都必须在这个根文件系统中。</p>
+<figure data-type="image" tabindex="1"><img src="https://charles-jan.github.io/post-images/1649603130232.png" alt="" loading="lazy"></figure>
+<p>为了保证当前的容器进程没有办法访问宿主机器上其他目录，我们在这里还需要通过 libcontainer 提供的 pivot_root 或者 chroot 函数改变进程能够访问个文件目录的根节点。</p>
+<blockquote>
+<p>内容参考自 libcontainer 中的 <a href="https://github.com/opencontainers/runc/blob/main/libcontainer/SPEC.md">SPEC.md </a></p>
+</blockquote>
+<h4 id="chroot">chroot</h4>
+<p>在 Linux 系统中，系统默认的目录就都是以 / 也就是根目录开头的，chroot 的使用能够改变当前的系统根目录结构，通过改变当前系统的根目录，我们能够限制用户的权利，在新的根目录下并不能够访问旧系统根目录的结构个文件，也就建立了一个与原系统完全隔离的目录结构。</p>
+<h2 id="cgroups">CGroups</h2>
+<p>我们通过 Linux 的命名空间为新创建的进程隔离了文件系统、网络并与宿主机器之间的进程相互隔离，但是命名空间并不能够为我们提供物理资源上的隔离，比如 CPU 或者内存，如果在同一台机器上运行了多个对彼此以及宿主机器一无所知的『容器』，这些容器却共同占用了宿主机器的物理资源。</p>
+<p>如果其中的某一个容器正在执行 CPU 密集型的任务，那么就会影响其他容器中任务的性能与执行效率，导致多个容器相互影响并且抢占资源。如何对多个容器的资源使用进行限制就成了解决进程虚拟资源隔离之后的主要问题，而 Control Groups（简称 CGroups）就是能够隔离宿主机器上的物理资源，例如 CPU、内存、磁盘 I/O 和网络带宽。</p>
+<p>Linux 使用文件系统来实现 CGroup，我们可以直接使用下面的命令查看当前的 CGroup 中有哪些子系统：</p>
+<pre><code class="language-sh">$ lssubsys -m
+cpuset /sys/fs/cgroup/cpuset
+cpu,cpuacct /sys/fs/cgroup/cpu,cpuacct
+blkio /sys/fs/cgroup/blkio
+memory /sys/fs/cgroup/memory
+devices /sys/fs/cgroup/devices
+freezer /sys/fs/cgroup/freezer
+net_cls,net_prio /sys/fs/cgroup/net_cls,net_prio
+perf_event /sys/fs/cgroup/perf_event
+hugetlb /sys/fs/cgroup/hugetlb
+pids /sys/fs/cgroup/pids
+rdma /sys/fs/cgroup/rdma
+</code></pre>
+<p>如果我们想要创建一个新的 cgroup 只需要在想要分配或者限制资源的子系统下面创建一个新的文件夹，然后这个文件夹下就会自动出现很多的内容，如果你在 Linux 上安装了 Docker，你就会发现所有子系统的目录下都有一个名为 docker 的文件夹</p>
+<p>当我们使用 Docker 关闭掉正在运行的容器时，Docker 的子控制组对应的文件夹也会被 Docker 进程移除，Docker 在使用 CGroup 时其实也只是做了一些创建文件夹改变文件内容的文件操作，不过 CGroup 的使用也确实解决了我们限制子容器资源占用的问题，系统管理员能够为多个容器合理的分配资源并且不会出现多个容器互相抢占资源的问题。</p>
+<h2 id="unionfs">UnionFS</h2>
+<p>Linux 的命名空间和控制组分别解决了不同资源隔离的问题，前者解决了进程、网络以及文件系统的隔离，后者实现了 CPU、内存等资源的隔离，但是在 Docker 中还有另一个非常重要的问题需要解决 - 也就是镜像。</p>
+<p>Docker 镜像其实本质就是一个压缩包，我们可以使用下面的命令将一个 Docker 镜像中的文件导出：</p>
+<pre><code class="language-shell">$ docker save -o busybox.tar $(docker create busybox) 
+</code></pre>
+<h3 id="存储驱动">存储驱动</h3>
+<p>Docker 使用了一系列不同的存储驱动管理镜像内的文件系统并运行容器，这些存储驱动与 Docker 卷（volume）有些不同，存储引擎管理着能够在多个容器之间共享的存储。</p>
+<p>想要理解 Docker 使用的存储驱动，我们首先需要理解 Docker 是如何构建并且存储镜像的，也需要明白 Docker 的镜像是如何被每一个容器所使用的；Docker 中的每一个镜像都是由一系列只读的层组成的，Dockerfile 中的每一个命令都会在已有的只读层上创建一个新的层（layer）。</p>
+<p>容器中的每一层（layer）都只对当前容器进行了非常小的修改，上述的 Dockerfile 文件会构建一个拥有四层 layer 的镜像。</p>
+<p>UnionFS 其实是一种为 Linux 操作系统设计的用于把多个文件系统『联合』到同一个挂载点的文件系统服务。overlay2 作为联合文件系统，它能够将不同文件夹中的层联合（Union）到了同一个文件夹中，整个『联合』的过程被称为联合挂载（Union Mount）：<br>
+<img src="https://charles-jan.github.io/post-images/1649606279317.png" alt="overlay2" loading="lazy"><br>
+overlay2主要由merged、lowerdir、upperdir、workdir组成。overlay2运作时，会将lowerdir、upperdir和workdir联合挂载到merged目录，为使用者提供一个“统一视图”。</p>
+<p>在最新的 Docker 中，overlay2 是默认的存储驱动，但是在没有 overlay2 驱动的机器上会使用 aufs 作为 Docker 的默认驱动。</p>
+<blockquote>
+<p>在 Docker 的官方文档 <a href="https://docs.docker.com/storage/storagedriver/select-storage-driver/">Select a storage driver</a> 中可以找到不同存储驱动的说明。</p>
+</blockquote>
+<h2 id="总结">总结</h2>
+<p>Docker 目前已经成为了非常主流的技术，已经在很多成熟公司的生产环境中使用，但是 Docker 的核心技术其实已经有很多年的历史了，Linux 命名空间、控制组和 UnionFS 三大技术支撑了目前 Docker 的实现，也是 Docker 能够出现的最重要原因。</p>
+
+            </div>
+            
+            
+              <div class="next-post">
+                <div class="next">下一篇</div>
+                <a href="https://charles-jan.github.io/post/docker-introduction/">
+                  <h3 class="post-title">
+                    Docker 入门小尝试
+                  </h3>
+                </a>
+              </div>
+            
+
+            
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+<script type="application/javascript">
+
+AOS.init();
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    menuVisible: false,
+  },
+})
+
+</script>
+
+
+  <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>
+    hljs.initHighlightingOnLoad()
+  </script>
+
+
+
+
+
+  </body>
+</html>

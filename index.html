@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>Charles-Jan 的创意工坊</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="shortcut icon" href="https://charles-jan.github.io/favicon.ico?v=1697020614179">
+<link rel="stylesheet" href="https://charles-jan.github.io/styles/main.css">
+
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+
+
+    <meta name="description" content="For Technology，For Memories">
+    
+  </head>
+  <body>
+    <div id="app" class="main">
+
+      <div class="sidebar" :class="{ 'full-height': menuVisible }">
+  <div class="top-container" data-aos="fade-right">
+    <div class="top-header-container">
+      <a class="site-title-container" href="https://charles-jan.github.io">
+        <img src="https://charles-jan.github.io/images/avatar.png?v=1697020614179" class="site-logo">
+        <h1 class="site-title">Charles-Jan 的创意工坊</h1>
+      </a>
+      <div class="menu-btn" @click="menuVisible = !menuVisible">
+        <div class="line"></div>
+      </div>
+    </div>
+    <div>
+      
+        
+          <a href="/" class="site-nav">
+            首页
+          </a>
+        
+      
+        
+          <a href="/archives" class="site-nav">
+            归档
+          </a>
+        
+      
+        
+          <a href="/tags" class="site-nav">
+            标签
+          </a>
+        
+      
+        
+          <a href="/post/about" class="site-nav">
+            关于
+          </a>
+        
+      
+    </div>
+  </div>
+  <div class="bottom-container" data-aos="flip-up" data-aos-offset="0">
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+    <div class="site-description">
+      For Technology，For Memories
+    </div>
+    <div class="site-footer">
+      Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://charles-jan.github.io/atom.xml" target="_blank">RSS</a>
+    </div>
+  </div>
+</div>
+
+
+      <div class="main-container">
+        <div class="content-container" data-aos="fade-up">
+          
+            <article class="post-item">
+              <div class="left">
+                <a href="https://charles-jan.github.io/post/postgresql-15-public-schema/">
+                  <h2 class="post-title">PostgreSQL 15 的 public 权限变化</h2>
+                </a>
+                <div class="post-date">
+                  2023-10-10
+                </div>
+                <div class="post-abstract">
+                  <p>在 POSTGRESQL 15 之前，public schema 是不安全的。不安全的因素在于，一个没有任何的权限的账号，可以在 POSTGRESQL 的任何的数据库中的 public schema 中肆意妄为。</p>
+
+                </div>
+              </div>
+              
+            </article>
+          
+            <article class="post-item">
+              <div class="left">
+                <a href="https://charles-jan.github.io/post/spring-boot-3.0-upgrade-swagger/">
+                  <h2 class="post-title">Spring Boot 3.0 升级排坑 —— Swagger</h2>
+                </a>
+                <div class="post-date">
+                  2023-09-20
+                </div>
+                <div class="post-abstract">
+                  <h1 id="背景">背景</h1>
+<p>由于现有的项目需要进行 JDK 版本和 SpringBoot 版本的升级。JDK 需要从 1.8 升级到 17，SpringBoot 需要从 2.1.x 升级到 3.1.x。于是花了两天时间调研了一下升级的迁移方式。</p>
+
+                </div>
+              </div>
+              
+            </article>
+          
+            <article class="post-item">
+              <div class="left">
+                <a href="https://charles-jan.github.io/post/kong-yi-ji/">
+                  <h2 class="post-title">读公众号杂想</h2>
+                </a>
+                <div class="post-date">
+                  2023-08-29
+                </div>
+                <div class="post-abstract">
+                  <p>...<br>
+孔乙己自己知道不能和他们谈天，便只好向应届生们说话。有一回对我说道，“你学过编程吗?”</p>
+
+                </div>
+              </div>
+              
+            </article>
+          
+            <article class="post-item">
+              <div class="left">
+                <a href="https://charles-jan.github.io/post/docker-core-tech/">
+                  <h2 class="post-title">Docker 核心技术与实现原理</h2>
+                </a>
+                <div class="post-date">
+                  2022-04-06
+                </div>
+                <div class="post-abstract">
+                  <p>Docker 经过多年的发展目前的组件较多，并且实现也非常复杂，本文不想过多的介绍 Docker 具体的实现细节，而更想谈一谈 Docker 这种虚拟化技术的出现有哪些核心技术的支撑。</p>
+
+                </div>
+              </div>
+              
+            </article>
+          
+            <article class="post-item">
+              <div class="left">
+                <a href="https://charles-jan.github.io/post/docker-introduction/">
+                  <h2 class="post-title">Docker 入门小尝试</h2>
+                </a>
+                <div class="post-date">
+                  2022-03-15
+                </div>
+                <div class="post-abstract">
+                  <p>提到虚拟化技术，我们首先想到的一定是 Docker。经过近 10 的发展，Docker 已经成了很多公司的标配。作为在生产环境中广泛应用的产品，Docker 有着非常成熟的社区以及大量的使用者，代码库中的内容也变得非常庞大。</p>
+
+                </div>
+              </div>
+              
+                <a class="right" href="https://charles-jan.github.io/post/docker-introduction/">
+                  <div class="feature-container" style="background-image: url('https://charles-jan.github.io/post-images/docker-introduction.png')">
+                  </div>
+                </a>
+              
+            </article>
+          
+
+          <div class="pagination-container">
+  
+  
+</div>
+
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+<script type="application/javascript">
+
+AOS.init();
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    menuVisible: false,
+  },
+})
+
+</script>
+
+
+  <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>
+    hljs.initHighlightingOnLoad()
+  </script>
+
+
+
+
+
+  </body>
+</html>

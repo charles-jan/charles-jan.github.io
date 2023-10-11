@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" >
+
+<title>PostgreSQL 15 的 public 权限变化 | Charles-Jan 的创意工坊</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+<link rel="shortcut icon" href="https://charles-jan.github.io/favicon.ico?v=1697020614179">
+<link rel="stylesheet" href="https://charles-jan.github.io/styles/main.css">
+
+
+
+<link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+
+
+    <meta name="description" content="在 POSTGRESQL 15 之前，public schema 是不安全的。不安全的因素在于，一个没有任何的权限的账号，可以在 POSTGRESQL 的任何的数据库中的 public schema 中肆意妄为。
+
+我们来看看如果一个什么都..." />
+    <meta name="keywords" content="Database" />
+  </head>
+  <body>
+    <div id="app" class="main">
+
+      <div class="sidebar" :class="{ 'full-height': menuVisible }">
+  <div class="top-container" data-aos="fade-right">
+    <div class="top-header-container">
+      <a class="site-title-container" href="https://charles-jan.github.io">
+        <img src="https://charles-jan.github.io/images/avatar.png?v=1697020614179" class="site-logo">
+        <h1 class="site-title">Charles-Jan 的创意工坊</h1>
+      </a>
+      <div class="menu-btn" @click="menuVisible = !menuVisible">
+        <div class="line"></div>
+      </div>
+    </div>
+    <div>
+      
+        
+          <a href="/" class="site-nav">
+            首页
+          </a>
+        
+      
+        
+          <a href="/archives" class="site-nav">
+            归档
+          </a>
+        
+      
+        
+          <a href="/tags" class="site-nav">
+            标签
+          </a>
+        
+      
+        
+          <a href="/post/about" class="site-nav">
+            关于
+          </a>
+        
+      
+    </div>
+  </div>
+  <div class="bottom-container" data-aos="flip-up" data-aos-offset="0">
+    <div class="social-container">
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+    <div class="site-description">
+      For Technology，For Memories
+    </div>
+    <div class="site-footer">
+      Powered by <a href="https://github.com/getgridea/gridea" target="_blank">Gridea</a> | <a class="rss" href="https://charles-jan.github.io/atom.xml" target="_blank">RSS</a>
+    </div>
+  </div>
+</div>
+
+
+      <div class="main-container">
+        <div class="content-container" data-aos="fade-up">
+          <div class="post-detail">
+            <h2 class="post-title">PostgreSQL 15 的 public 权限变化</h2>
+            <div class="post-date">2023-10-10</div>
+            
+            <div class="post-content" v-pre>
+              <p>在 POSTGRESQL 15 之前，public schema 是不安全的。不安全的因素在于，一个没有任何的权限的账号，可以在 POSTGRESQL 的任何的数据库中的 public schema 中肆意妄为。</p>
+<!-- more -->
+<p>我们来看看如果一个什么都没有权限的账号，可以在PG中做什么</p>
+<ol>
+<li>建立任何的 OBJECTS ，TABLE，VIEW ，Trigger,  procedure , 等等</li>
+<li>可以对自己建立的 OBJECTS  进行任何的数据的插入，删除，UPDATE 等操作，并且没有任何的限制</li>
+</ol>
+<p>正是由于 <code>public schema</code> 有如此 ”方便“ 的特点，在过去的使用 PostgreSQL 过程中，默认情况下往往都是以 public schema 进行建表、开发的。在此基础上，通常也无法对数据库进行有序的管理。</p>
+<p>在使用高版本 flyway（&gt; 8.0) 后，官方建议 PostgreSQL 使用 15 以上的版本。而在该版本中，只有数据库所有者将被授予对 <code>public</code> 模式的完全访问权限，而其他用户将需要获得明确的 <code>GRANT</code>。因此，在新版本中如果只为新的服务建立了数据库和对应用户，在进行数据库操作时候，会返回 <code>ERROR: permission denied for schema public</code> 这样的错误。</p>
+<p>正确的操作方式如下：<br>
+方案 1：</p>
+<pre><code class="language-SQL"># step 1 使用root账户创建数据库
+create database test
+# step 2 切换连接到新的数据库 test
+# step 3 创建用户
+create user test password 'o6dTXQDVHlbIv8Pl' login;
+# step 4 更新数据库的owner
+ALTER DATABASE test OWNER TO test;
+# step 5 创建（用户）同名schema
+create schema test authorization test;
+</code></pre>
+<p>方案 2：</p>
+<pre><code class="language-SQL"># step 1 使用root账户创建用户
+create user test password 'o6dTXQDVHlbIv8Pl' login;
+# step 2 切换新用户登录
+# step 3 创建数据库
+create database test owner test;
+# step 4 创建（用户）同名schema
+create schema test authorization test;
+</code></pre>
+<p>这样，在使用新的 test 用户登录后，将默认使用与自己同名的 test schema，而不会再使用 public schema, 同样也不会再出现上述的权限错误。</p>
+
+            </div>
+            
+              <div class="tag-container">
+                
+                  <a href="https://charles-jan.github.io/tag/2pWogjEUT/" class="tag">
+                    Database
+                  </a>
+                
+              </div>
+            
+            
+              <div class="next-post">
+                <div class="next">下一篇</div>
+                <a href="https://charles-jan.github.io/post/spring-boot-3.0-upgrade-swagger/">
+                  <h3 class="post-title">
+                    Spring Boot 3.0 升级排坑 —— Swagger
+                  </h3>
+                </a>
+              </div>
+            
+
+            
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+<script type="application/javascript">
+
+AOS.init();
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    menuVisible: false,
+  },
+})
+
+</script>
+
+
+  <script src="https://cdn.bootcss.com/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>
+    hljs.initHighlightingOnLoad()
+  </script>
+
+
+
+
+
+  </body>
+</html>
